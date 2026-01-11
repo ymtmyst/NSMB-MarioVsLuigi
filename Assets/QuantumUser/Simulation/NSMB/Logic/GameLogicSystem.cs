@@ -1,6 +1,7 @@
 using Photon.Deterministic;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using UnityEngine;
 
@@ -210,12 +211,77 @@ namespace Quantum {
             var gamemode = f.FindAsset(f.Global->Rules.Gamemode);
             gamemode.DisableGamemode(f);
 
-            // 入力データの件数を出力（後でJSONに保存する予定）
-            int inputCount = QuantumUtils.GetInputRecordCount();
-            Debug.Log($"[GameEnded] Input records count: {inputCount}, Winner: {(winningTeam.HasValue ? $"Team {winningTeam.Value}" : "None")}");
+            // 入力データをJSONファイルに保存
+            SaveInputDataToJson(winningTeam);
             
             // 入力データをクリア（次の試合のため）
             QuantumUtils.ClearInputRecords();
+        }
+
+        private static void SaveInputDataToJson(int? winningTeam) {
+            var inputRecords = QuantumUtils.GetInputRecords();
+            int inputCount = inputRecords.Count;
+            
+            if (inputCount == 0) {
+                Debug.Log("[GameEnded] No input data to save");
+                return;
+            }
+
+            try {
+                // 保存先ディレクトリ
+                string outputDir = @"C:\Users\tktho\Documents\★Download\MvLO\replay\入力データ";
+                
+                // ディレクトリが存在しない場合は作成
+                if (!Directory.Exists(outputDir)) {
+                    Directory.CreateDirectory(outputDir);
+                }
+
+                // ファイル名（タイムスタンプ付き）
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string filename = $"match_{timestamp}.json";
+                string filepath = Path.Combine(outputDir, filename);
+
+                // JSON形式でデータを構築
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine("{");
+                sb.AppendLine($"  \"winningTeam\": {(winningTeam.HasValue ? winningTeam.Value.ToString() : "null")},");
+                sb.AppendLine($"  \"hasWinner\": {(winningTeam.HasValue ? "true" : "false")},");
+                sb.AppendLine($"  \"totalRecords\": {inputCount},");
+                sb.AppendLine("  \"inputs\": [");
+
+                for (int i = 0; i < inputCount; i++) {
+                    var record = inputRecords[i];
+                    sb.Append("    {");
+                    sb.Append($"\"frame\":{record.FrameNumber},");
+                    sb.Append($"\"player\":{record.PlayerIndex},");
+                    sb.Append($"\"up\":{(record.Up ? "true" : "false")},");
+                    sb.Append($"\"down\":{(record.Down ? "true" : "false")},");
+                    sb.Append($"\"left\":{(record.Left ? "true" : "false")},");
+                    sb.Append($"\"right\":{(record.Right ? "true" : "false")},");
+                    sb.Append($"\"jump\":{(record.Jump ? "true" : "false")},");
+                    sb.Append($"\"sprint\":{(record.Sprint ? "true" : "false")},");
+                    sb.Append($"\"powerupAction\":{(record.PowerupAction ? "true" : "false")},");
+                    sb.Append($"\"fireballPowerupAction\":{(record.FireballPowerupAction ? "true" : "false")},");
+                    sb.Append($"\"propellerPowerupAction\":{(record.PropellerPowerupAction ? "true" : "false")}");
+                    sb.Append("}");
+                    
+                    if (i < inputCount - 1) {
+                        sb.AppendLine(",");
+                    } else {
+                        sb.AppendLine();
+                    }
+                }
+
+                sb.AppendLine("  ]");
+                sb.AppendLine("}");
+
+                // ファイルに書き込み
+                File.WriteAllText(filepath, sb.ToString());
+                
+                Debug.Log($"[GameEnded] Input data saved: {filepath} ({inputCount} records)");
+            } catch (Exception ex) {
+                Debug.LogError($"[GameEnded] Failed to save input data: {ex.Message}");
+            }
         }
 
         public void OnMarioPlayerDied(Frame f, EntityRef entity) {
