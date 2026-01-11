@@ -40,7 +40,7 @@ namespace NSMB.UI.Game.Replay {
         public float ReplaySpeed => replaySpeed;
 
         //---Private Variables
-        private float replaySpeed = 1;
+        private float replaySpeed = 64; //リプレイ速度変更
         private int fastForwardDestinationTick, previousTimestampSeconds;
         private bool replayPaused;
         private bool draggingArrow;
@@ -71,6 +71,9 @@ namespace NSMB.UI.Game.Replay {
             replayLength = Utils.SecondsToMinuteSeconds(ActiveReplayManager.Instance.ReplayLength / f.UpdateRate);
             trackArrowText.gameObject.SetActive(false);
             Settings.Controls.UI.Pause.performed += OnPause;
+            
+            // 初期再生速度を適用
+            Time.timeScale = replaySpeed;
         }
 
         public void OnDestroy() {
