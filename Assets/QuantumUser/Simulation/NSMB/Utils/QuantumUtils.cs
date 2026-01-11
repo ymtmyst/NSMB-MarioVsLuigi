@@ -7,6 +7,56 @@ using System.Collections.Generic;
 
 public static unsafe class QuantumUtils {
 
+    // 入力データ記録用の構造体
+    public struct InputRecord {
+        public int FrameNumber;
+        public int PlayerIndex;
+        public bool Up;
+        public bool Down;
+        public bool Left;
+        public bool Right;
+        public bool Jump;
+        public bool Sprint;
+        public bool PowerupAction;
+        public bool FireballPowerupAction;
+        public bool PropellerPowerupAction;
+    }
+
+    // 入力データを蓄積するリスト
+    private static List<InputRecord> _inputRecords = new List<InputRecord>();
+
+    // 入力データを記録
+    public static void RecordInput(int frameNumber, int playerIndex, Input input) {
+        _inputRecords.Add(new InputRecord {
+            FrameNumber = frameNumber,
+            PlayerIndex = playerIndex,
+            Up = input.Up.IsDown,
+            Down = input.Down.IsDown,
+            Left = input.Left.IsDown,
+            Right = input.Right.IsDown,
+            Jump = input.Jump.IsDown,
+            Sprint = input.Sprint.IsDown,
+            PowerupAction = input.PowerupAction.IsDown,
+            FireballPowerupAction = input.FireballPowerupAction.IsDown,
+            PropellerPowerupAction = input.PropellerPowerupAction.IsDown
+        });
+    }
+
+    // 蓄積された入力データを取得
+    public static List<InputRecord> GetInputRecords() {
+        return _inputRecords;
+    }
+
+    // 入力データの件数を取得
+    public static int GetInputRecordCount() {
+        return _inputRecords.Count;
+    }
+
+    // 入力データをクリア
+    public static void ClearInputRecords() {
+        _inputRecords.Clear();
+    }
+
     private static readonly SoundEffect[] ComboSounds = {
         SoundEffect.Enemy_Shell_Kick,
         SoundEffect.Enemy_Shell_Combo1,

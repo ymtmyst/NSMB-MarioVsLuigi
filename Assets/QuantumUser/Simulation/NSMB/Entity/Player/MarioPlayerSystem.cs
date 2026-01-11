@@ -43,6 +43,10 @@ namespace Quantum {
             Input* inputPtr;
             if (player.IsValid && (inputPtr = f.GetPlayerInput(player)) != null) {
                 filter.Inputs = *inputPtr;
+                
+                // 入力データをQuantumUtilsに記録
+                int playerIndex = player._index;
+                QuantumUtils.RecordInput(f.Number, playerIndex, filter.Inputs);
             } else {
                 filter.Inputs = default;
             }

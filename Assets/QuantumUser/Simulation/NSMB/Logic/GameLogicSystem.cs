@@ -2,6 +2,7 @@ using Photon.Deterministic;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 
 namespace Quantum {
     public unsafe class GameLogicSystem : SystemMainThread, ISignalOnPlayerAdded, ISignalOnPlayerRemoved, ISignalOnMarioPlayerDied,
@@ -208,6 +209,13 @@ namespace Quantum {
 
             var gamemode = f.FindAsset(f.Global->Rules.Gamemode);
             gamemode.DisableGamemode(f);
+
+            // 入力データの件数を出力（後でJSONに保存する予定）
+            int inputCount = QuantumUtils.GetInputRecordCount();
+            Debug.Log($"[GameEnded] Input records count: {inputCount}, Winner: {(winningTeam.HasValue ? $"Team {winningTeam.Value}" : "None")}");
+            
+            // 入力データをクリア（次の試合のため）
+            QuantumUtils.ClearInputRecords();
         }
 
         public void OnMarioPlayerDied(Frame f, EntityRef entity) {
