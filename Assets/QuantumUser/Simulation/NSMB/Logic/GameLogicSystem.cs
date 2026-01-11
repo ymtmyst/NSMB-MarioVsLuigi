@@ -509,6 +509,9 @@ namespace Quantum {
                 data->VotedToContinue = false;
                 data->RealTeam = 255;
             }
+
+            // 入力データをクリア（リプレイ中断時のため）
+            QuantumUtils.ClearInputRecords();
         }
 
         public void OnRemoved(Frame f, EntityRef entity, MarioPlayer* component) {
