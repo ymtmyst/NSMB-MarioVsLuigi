@@ -26,7 +26,8 @@ namespace NSMB.UI.Intro {
         private Coroutine logoBounceRoutine;
 
         public void Start() {
-            StartCoroutine(IntroSequence());
+            if (GlobalController.Instance.bootedWithReplayArg) gameObject.SetActive(false);
+            else StartCoroutine(IntroSequence());
             possibleSfx = ((SoundEffect[]) Enum.GetValues(typeof(SoundEffect)))
                 .Where(se => !excludedSounds.Contains(se))
                 .Select(se => se.GetSoundData())

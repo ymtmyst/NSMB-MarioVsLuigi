@@ -216,6 +216,8 @@ namespace Quantum {
             
             // 入力データをクリア（次の試合のため）
             QuantumUtils.ClearInputRecords();
+
+            Application.Quit();
         }
 
         private static void SaveInputDataToJson(int? winningTeam) {
@@ -282,6 +284,7 @@ namespace Quantum {
             } catch (Exception ex) {
                 Debug.LogError($"[GameEnded] Failed to save input data: {ex.Message}");
             }
+            
         }
 
         public void OnMarioPlayerDied(Frame f, EntityRef entity) {

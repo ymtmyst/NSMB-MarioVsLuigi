@@ -155,7 +155,7 @@ namespace NSMB.UI.Game.Results {
 
         public void Select(int index) {
             Deselect(index);
-            labels[index].text = "» " + labels[index].text;
+            labels[index].text = "ï¿½ " + labels[index].text;
             labels[index].color = labelSelectedColor;
         }
 
@@ -186,7 +186,7 @@ namespace NSMB.UI.Game.Results {
                         ReplayListManager.Instance.Select(newReplay, true);
                         ActiveReplayManager.Instance.StartReplayPlayback(newReplay.ReplayFile);
                     } else {
-                        labels[0].text = "» " + GlobalController.Instance.translationManager.GetTranslation("ui.game.results.nextreplay.nomore");
+                        labels[0].text = "ï¿½ " + GlobalController.Instance.translationManager.GetTranslation("ui.game.results.nextreplay.nomore");
                         sfx.PlayOneShot(SoundEffect.UI_Error);
                         if (noReplaysCoroutine != null) {
                             StopCoroutine(noReplaysCoroutine);
@@ -222,9 +222,10 @@ namespace NSMB.UI.Game.Results {
             case 2:
                 if (exitPrompt) {
                     QuantumRunner.Default.Shutdown();
+                    if (GlobalController.Instance.bootedWithReplayArg) Application.Quit();
                 } else {
                     exitPrompt = true;
-                    labels[2].text = "» " + GlobalController.Instance.translationManager.GetTranslation(exitPrompt ? "ui.generic.confirmation" : "ui.game.results.quittomainmenu");
+                    labels[2].text = "ï¿½ " + GlobalController.Instance.translationManager.GetTranslation(exitPrompt ? "ui.generic.confirmation" : "ui.game.results.quittomainmenu");
                 }
                 sfx.PlayOneShot(SoundEffect.UI_Decide);
                 break;

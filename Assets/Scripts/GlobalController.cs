@@ -1,5 +1,6 @@
 ﻿using NSMB.Networking;
 using NSMB.Quantum;
+using NSMB.Replay;
 using NSMB.UI.Loading;
 using NSMB.UI.MainMenu;
 using NSMB.UI.MainMenu.Submenus.Replays;
@@ -9,6 +10,7 @@ using NSMB.Utilities.Extensions;
 using Quantum;
 using System;
 using System.Collections;
+using System.IO;
 using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.InputSystem;
@@ -38,7 +40,7 @@ namespace NSMB {
         public Image fullscreenFadeImage;
         public AudioSource sfx;
 
-        [NonSerialized] public bool checkedForVersion = false, firstConnection = true;
+        [NonSerialized] public bool checkedForVersion = false, firstConnection = true, bootedWithReplayArg = false;
         [NonSerialized] public int windowWidth = 1280, windowHeight = 720;
 
         //---Serialized Variables
@@ -83,6 +85,12 @@ namespace NSMB {
             QuantumEvent.Subscribe<EventStartGameEndFade>(this, OnStartGameEndFade);
             QuantumCallback.Subscribe<CallbackUnitySceneLoadDone>(this, OnUnitySceneLoadDone);
             loadingCanvas.Startup();
+            
+            var commandLineArgs = Environment.GetCommandLineArgs();
+            for (int i = 0; i < commandLineArgs.Length; i++) {
+                if (commandLineArgs[i] == "-replay" && commandLineArgs.Length > i + 1)
+                    StartReplayFromArgs(commandLineArgs[i + 1]);
+            }
         }
 
         public void OnDestroy() {
@@ -220,6 +228,18 @@ namespace NSMB {
                 fullscreenFadeImage.color = color;
                 yield return null;
             }
+        }
+        
+        private void StartReplayFromArgs(string argReplayPath)
+        {
+            using FileStream input = new(argReplayPath, FileMode.Open);
+            if (BinaryReplayFile.TryLoadNewFromStream(input, true, out var result) != ReplayParseResult.Success)
+            {
+                Debug.LogError("Failed to parse replay file when booting with cmdline args...");
+                return;
+            }
+            bootedWithReplayArg = true;
+            ActiveReplayManager.Instance.StartReplayPlayback(result);
         }
 
         private void OnStartGameEndFade(EventStartGameEndFade e) {
