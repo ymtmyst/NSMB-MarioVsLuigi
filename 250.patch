@@ -1,0 +1,229 @@
+From bd4a667e8eb9cb8f6f082fecee7dba1691e25943 Mon Sep 17 00:00:00 2001
+From: vic <victorstancioiu@gmail.com>
+Date: Tue, 10 Jun 2025 18:52:55 +0200
+Subject: [PATCH 1/3] implement replay playing from cmdline
+
+---
+ Assets/Scripts/GlobalController.cs | 22 +++++++++++++++++++++-
+ Assets/Scripts/IntroManager.cs     |  3 ++-
+ 2 files changed, 23 insertions(+), 2 deletions(-)
+
+diff --git a/Assets/Scripts/GlobalController.cs b/Assets/Scripts/GlobalController.cs
+index 219ac499cc..daa375979b 100644
+--- a/Assets/Scripts/GlobalController.cs
++++ b/Assets/Scripts/GlobalController.cs
+@@ -1,10 +1,12 @@
+ ﻿using NSMB.Extensions;
+ using NSMB.Loading;
++using NSMB.Replay;
+ using NSMB.Translation;
+ using NSMB.UI.Pause.Options;
+ using Quantum;
+ using System;
+ using System.Collections;
++using System.IO;
+ using UnityEngine;
+ using UnityEngine.Audio;
+ using UnityEngine.InputSystem;
+@@ -33,7 +35,7 @@ public class GlobalController : Singleton<GlobalController> {
+     public Image fullscreenFadeImage;
+     public AudioSource sfx;
+ 
+-    [NonSerialized] public bool checkedForVersion = false, firstConnection = true;
++    [NonSerialized] public bool checkedForVersion = false, firstConnection = true, bootedWithReplayArg = false;
+     [NonSerialized] public int windowWidth = 1280, windowHeight = 720;
+ 
+  
+@@ -75,6 +77,12 @@ public void Start() {
+         Settings.Controls.Debug.FPSMonitor.performed += ToggleFpsMonitor;
+         QuantumEvent.Subscribe<EventStartGameEndFade>(this, OnStartGameEndFade);
+         QuantumCallback.Subscribe<CallbackUnitySceneLoadDone>(this, OnUnitySceneLoadDone);
++        
++        var commandLineArgs = Environment.GetCommandLineArgs();
++        for (int i = 0; i < commandLineArgs.Length; i++) {
++            if (commandLineArgs[i] == "-replay" && commandLineArgs.Length > i + 1)
++                StartReplayFromArgs(commandLineArgs[i + 1]);
++        }
+     }
+ 
+     public void OnDestroy() {
+@@ -204,6 +212,18 @@ private IEnumerator FadeFullscreenImage(float target, float fadeDuration, float
+             yield return null;
+         }
+     }
++    
++    private void StartReplayFromArgs(string argReplayPath)
++    {
++        using FileStream input = new(argReplayPath, FileMode.Open);
++        if (BinaryReplayFile.TryLoadNewFromStream(input, true, out var result) != ReplayParseResult.Success)
++        {
++            Debug.LogError("Failed to parse replay file when booting with cmdline args...");
++            return;
++        }
++        bootedWithReplayArg = true;
++        NetworkHandler.StartReplay(result);
++    }
+ 
+     private void OnStartGameEndFade(EventStartGameEndFade e) {
+         StartCoroutine(FadeFullscreenImage(1, 1/3f));
+diff --git a/Assets/Scripts/IntroManager.cs b/Assets/Scripts/IntroManager.cs
+index 2e1aa0211c..26ced9e92c 100644
+--- a/Assets/Scripts/IntroManager.cs
++++ b/Assets/Scripts/IntroManager.cs
+@@ -11,7 +11,8 @@ public class IntroManager : MonoBehaviour {
+     [SerializeField] private AudioSource sfx;
+ 
+     public void Start() {
+-        StartCoroutine(IntroSequence());
++        if (GlobalController.Instance.bootedWithReplayArg) gameObject.SetActive(false);
++        else StartCoroutine(IntroSequence());
+     }
+ 
+     private IEnumerator IntroSequence() {
+
+From e80af972462164bc49eebddca3cf46df056225a3 Mon Sep 17 00:00:00 2001
+From: vic <victorstancioiu@gmail.com>
+Date: Tue, 10 Jun 2025 18:53:38 +0200
+Subject: [PATCH 2/3] exit game instead of to main menu
+
+---
+ Assets/Scripts/UI/Game/Results/ResultsMenu.cs        | 7 ++++---
+ Assets/Scripts/UI/MainMenu/Pause/PauseMenuManager.cs | 7 ++++---
+ 2 files changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/Assets/Scripts/UI/Game/Results/ResultsMenu.cs b/Assets/Scripts/UI/Game/Results/ResultsMenu.cs
+index 329c41d4c8..9d5ed345cf 100644
+--- a/Assets/Scripts/UI/Game/Results/ResultsMenu.cs
++++ b/Assets/Scripts/UI/Game/Results/ResultsMenu.cs
+@@ -154,7 +154,7 @@ public void Deselect(int index) {
+ 
+         public void Select(int index) {
+             Deselect(index);
+-            labels[index].text = "� " + labels[index].text;
++            labels[index].text = "� " + labels[index].text;
+             labels[index].color = labelSelectedColor;
+         }
+ 
+@@ -173,7 +173,7 @@ public void Click(int index) {
+ 
+                     var newReplay = replayManager.Replays[(replayIndex + 1) % replayManager.Replays.Count];
+                     if (replayIndex + 1 >= replayManager.Replays.Count || newReplay.ReplayFile == NetworkHandler.CurrentReplay) {
+-                        labels[0].text = "� " + GlobalController.Instance.translationManager.GetTranslation("ui.game.results.nextreplay.nomore");
++                        labels[0].text = "� " + GlobalController.Instance.translationManager.GetTranslation("ui.game.results.nextreplay.nomore");
+                         sfx.PlayOneShot(SoundEffect.UI_Error);
+                         if (noReplaysCoroutine != null) {
+                             StopCoroutine(noReplaysCoroutine);
+@@ -211,9 +211,10 @@ public void Click(int index) {
+             case 2:
+                 if (exitPrompt) {
+                     NetworkHandler.Runner.Shutdown();
++                    if (GlobalController.Instance.bootedWithReplayArg) Application.Quit();
+                 } else {
+                     exitPrompt = true;
+-                    labels[2].text = "� " + GlobalController.Instance.translationManager.GetTranslation(exitPrompt ? "ui.generic.confirmation" : "ui.game.results.quittomainmenu");
++                    labels[2].text = "� " + GlobalController.Instance.translationManager.GetTranslation(exitPrompt ? "ui.generic.confirmation" : "ui.game.results.quittomainmenu");
+                 }
+                 sfx.PlayOneShot(SoundEffect.UI_Decide);
+                 break;
+diff --git a/Assets/Scripts/UI/MainMenu/Pause/PauseMenuManager.cs b/Assets/Scripts/UI/MainMenu/Pause/PauseMenuManager.cs
+index 20d36c12de..06e5af4d25 100644
+--- a/Assets/Scripts/UI/MainMenu/Pause/PauseMenuManager.cs
++++ b/Assets/Scripts/UI/MainMenu/Pause/PauseMenuManager.cs
+@@ -201,7 +201,7 @@ public void SelectConfirmYes(bool sound) {
+             }
+ 
+             isInConfirmationYesSelected = true;
+-            yesConfirmText.text = "� " + originalYesText + " �";
++            yesConfirmText.text = "� " + originalYesText + " �";
+             noConfirmText.text = originalNoText;
+         }
+ 
+@@ -212,12 +212,13 @@ public void SelectConfirmNo(bool sound) {
+ 
+             isInConfirmationYesSelected = false;
+             yesConfirmText.text = originalYesText;
+-            noConfirmText.text = "� " + originalNoText + " �";
++            noConfirmText.text = "� " + originalNoText + " �";
+         }
+ 
+         public unsafe void ClickConfirmYes() {
+             if (isInConfirmationForQuitting) {
+                 NetworkHandler.Runner.Shutdown();
++                if (GlobalController.Instance.bootedWithReplayArg) Application.Quit();
+             } else {
+                 QuantumGame game = NetworkHandler.Game;
+                 Frame f = game.Frames.Predicted;
+@@ -319,7 +320,7 @@ public void UpdateLabels() {
+ 
+             for (int i = 0; i < options.Length; i++) {
+                 PauseMenuOptionWrapper option = options[i];
+-                option.text.text = (selected == i) ? ("� " + option.originalText + " �") : option.originalText;
++                option.text.text = (selected == i) ? ("� " + option.originalText + " �") : option.originalText;
+                 //option.text.isRightToLeftText = GlobalController.Instance.translationManager.RightToLeft;
+             }
+         }
+
+From 6901dda7f1bf17a32c3a756bfd434eb57c5ecb28 Mon Sep 17 00:00:00 2001
+From: vic <victorstancioiu@gmail.com>
+Date: Tue, 10 Jun 2025 18:59:26 +0200
+Subject: [PATCH 3/3] undo character mess up from last commit
+
+this has nothing to do with the original intent of the pr. so sorry
+---
+ Assets/Scripts/UI/Game/Results/ResultsMenu.cs        | 4 ++--
+ Assets/Scripts/UI/MainMenu/Pause/PauseMenuManager.cs | 6 +++---
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/Assets/Scripts/UI/Game/Results/ResultsMenu.cs b/Assets/Scripts/UI/Game/Results/ResultsMenu.cs
+index 9d5ed345cf..f755931c59 100644
+--- a/Assets/Scripts/UI/Game/Results/ResultsMenu.cs
++++ b/Assets/Scripts/UI/Game/Results/ResultsMenu.cs
+@@ -154,7 +154,7 @@ public void Deselect(int index) {
+ 
+         public void Select(int index) {
+             Deselect(index);
+-            labels[index].text = "� " + labels[index].text;
++            labels[index].text = "» " + labels[index].text;
+             labels[index].color = labelSelectedColor;
+         }
+ 
+@@ -173,7 +173,7 @@ public void Click(int index) {
+ 
+                     var newReplay = replayManager.Replays[(replayIndex + 1) % replayManager.Replays.Count];
+                     if (replayIndex + 1 >= replayManager.Replays.Count || newReplay.ReplayFile == NetworkHandler.CurrentReplay) {
+-                        labels[0].text = "� " + GlobalController.Instance.translationManager.GetTranslation("ui.game.results.nextreplay.nomore");
++                        labels[0].text = "» " + GlobalController.Instance.translationManager.GetTranslation("ui.game.results.nextreplay.nomore");
+                         sfx.PlayOneShot(SoundEffect.UI_Error);
+                         if (noReplaysCoroutine != null) {
+                             StopCoroutine(noReplaysCoroutine);
+diff --git a/Assets/Scripts/UI/MainMenu/Pause/PauseMenuManager.cs b/Assets/Scripts/UI/MainMenu/Pause/PauseMenuManager.cs
+index 06e5af4d25..8fa9218a28 100644
+--- a/Assets/Scripts/UI/MainMenu/Pause/PauseMenuManager.cs
++++ b/Assets/Scripts/UI/MainMenu/Pause/PauseMenuManager.cs
+@@ -201,7 +201,7 @@ public void SelectConfirmYes(bool sound) {
+             }
+ 
+             isInConfirmationYesSelected = true;
+-            yesConfirmText.text = "� " + originalYesText + " �";
++            yesConfirmText.text = "» " + originalYesText + " «";
+             noConfirmText.text = originalNoText;
+         }
+ 
+@@ -212,7 +212,7 @@ public void SelectConfirmNo(bool sound) {
+ 
+             isInConfirmationYesSelected = false;
+             yesConfirmText.text = originalYesText;
+-            noConfirmText.text = "� " + originalNoText + " �";
++            noConfirmText.text = "» " + originalNoText + " «";
+         }
+ 
+         public unsafe void ClickConfirmYes() {
+@@ -320,7 +320,7 @@ public void UpdateLabels() {
+ 
+             for (int i = 0; i < options.Length; i++) {
+                 PauseMenuOptionWrapper option = options[i];
+-                option.text.text = (selected == i) ? ("� " + option.originalText + " �") : option.originalText;
++                option.text.text = (selected == i) ? ("» " + option.originalText + " «") : option.originalText;
+                 //option.text.isRightToLeftText = GlobalController.Instance.translationManager.RightToLeft;
+             }
+         }
