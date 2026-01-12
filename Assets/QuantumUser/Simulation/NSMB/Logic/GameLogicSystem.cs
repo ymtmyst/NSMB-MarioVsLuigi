@@ -239,7 +239,7 @@ namespace Quantum {
                 }
 
                 // ファイル名（タイムスタンプ付き）
-                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
                 string filename = $"match_{timestamp}.json";
                 string filepath = Path.Combine(outputDir, filename);
 
