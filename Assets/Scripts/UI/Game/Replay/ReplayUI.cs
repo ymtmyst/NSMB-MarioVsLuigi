@@ -40,7 +40,7 @@ namespace NSMB.UI.Game.Replay {
         public float ReplaySpeed => replaySpeed;
 
         //---Private Variables
-        private float replaySpeed = 64; //リプレイ速度変更
+        private float replaySpeed = 128; //リプレイ速度変更
         private int fastForwardDestinationTick, previousTimestampSeconds;
         private bool replayPaused;
         private bool draggingArrow;

@@ -212,7 +212,7 @@ namespace Quantum {
             gamemode.DisableGamemode(f);
 
             // 入力データをJSONファイルに保存
-            SaveInputDataToJson(winningTeam);
+            SaveInputDataToJson(f, winningTeam);
             
             // 入力データをクリア（次の試合のため）
             QuantumUtils.ClearInputRecords();
@@ -220,7 +220,7 @@ namespace Quantum {
             Application.Quit();
         }
 
-        private static void SaveInputDataToJson(int? winningTeam) {
+        private static void SaveInputDataToJson(Frame f, int? winningTeam) {
             var inputRecords = QuantumUtils.GetInputRecords();
             int inputCount = inputRecords.Count;
             
@@ -243,16 +243,31 @@ namespace Quantum {
                 string filename = $"match_{timestamp}.json";
                 string filepath = Path.Combine(outputDir, filename);
 
+                // 勝利プレイヤーのインデックスを取得
+                var winningPlayerIndices = new List<int>();
+                if (winningTeam.HasValue) {
+                    var playerDatas = f.Filter<PlayerData>();
+                    while (playerDatas.NextUnsafe(out _, out PlayerData* data)) {
+                        if (data->RealTeam == winningTeam.Value && !data->IsSpectator) {
+                            winningPlayerIndices.Add(data->PlayerRef._index);
+                        }
+                    }
+                }
+                string winningComponentsStr = "[" + string.Join(",", winningPlayerIndices) + "]";
+
                 // JSON形式でデータを構築
                 var sb = new System.Text.StringBuilder();
                 sb.AppendLine("{");
                 sb.AppendLine($"  \"winningTeam\": {(winningTeam.HasValue ? winningTeam.Value.ToString() : "null")},");
+                sb.AppendLine($"  \"WinningPlayerIndex\": {winningComponentsStr},");
                 sb.AppendLine($"  \"hasWinner\": {(winningTeam.HasValue ? "true" : "false")},");
                 sb.AppendLine($"  \"totalRecords\": {inputCount},");
                 sb.AppendLine("  \"inputs\": [");
 
+                var groupedRecords = inputRecords.OrderBy(r => r.PlayerIndex).ThenBy(r => r.FrameNumber).ToList();
+
                 for (int i = 0; i < inputCount; i++) {
-                    var record = inputRecords[i];
+                    var record = groupedRecords[i];
                     sb.Append("    {");
                     sb.Append($"\"frame\":{record.FrameNumber},");
                     sb.Append($"\"player\":{record.PlayerIndex},");
@@ -264,7 +279,28 @@ namespace Quantum {
                     sb.Append($"\"sprint\":{(record.Sprint ? "true" : "false")},");
                     sb.Append($"\"powerupAction\":{(record.PowerupAction ? "true" : "false")},");
                     sb.Append($"\"fireballPowerupAction\":{(record.FireballPowerupAction ? "true" : "false")},");
-                    sb.Append($"\"propellerPowerupAction\":{(record.PropellerPowerupAction ? "true" : "false")}");
+                    sb.Append($"\"propellerPowerupAction\":{(record.PropellerPowerupAction ? "true" : "false")},");
+                    
+                    sb.Append($"\"stars\":{record.Stars},");
+
+                    string knockbackType = record.KnockbackStrength switch {
+                        0 => "None",
+                        1 => "FireballBump",
+                        2 => "CollisionBump",
+                        3 => "Normal",
+                        4 => "Groundpound",
+                        _ => "Unknown"
+                    };
+                    sb.Append($"\"knockbackStrength\":{record.KnockbackStrength},");
+                    sb.Append($"\"knockbackType\":\"{knockbackType}\",");
+                    sb.Append($"\"isInWeakKnockback\":{(record.IsInWeakKnockback ? "true" : "false")},");
+                    sb.Append($"\"knockbackGetupFrames\":{record.KnockbackGetupFrames},");
+                    sb.Append($"\"damageInvincibilityFrames\":{record.DamageInvincibilityFrames},");
+                    sb.Append($"\"positionX\":{record.PositionX},");
+                    sb.Append($"\"positionY\":{record.PositionY},");
+                    sb.Append($"\"velocityX\":{record.VelocityX},");
+                    sb.Append($"\"velocityY\":{record.VelocityY}");
+
                     sb.Append("}");
                     
                     if (i < inputCount - 1) {

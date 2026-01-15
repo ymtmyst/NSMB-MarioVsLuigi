@@ -46,7 +46,7 @@ namespace Quantum {
                 
                 // 入力データをQuantumUtilsに記録
                 int playerIndex = player._index;
-                QuantumUtils.RecordInput(f.Number, playerIndex, filter.Inputs);
+                QuantumUtils.RecordInput(f.Number, playerIndex, filter.Inputs, filter.MarioPlayer, filter.Transform, filter.PhysicsObject);
             } else {
                 filter.Inputs = default;
             }

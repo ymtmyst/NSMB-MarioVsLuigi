@@ -20,13 +20,33 @@ public static unsafe class QuantumUtils {
         public bool PowerupAction;
         public bool FireballPowerupAction;
         public bool PropellerPowerupAction;
+
+        // Additional Data
+        public int Stars;
+        public int KnockbackStrength;
+        public bool IsInWeakKnockback;
+        public int KnockbackGetupFrames;
+        public int DamageInvincibilityFrames;
+        public float PositionX;
+        public float PositionY;
+        public float VelocityX;
+        public float VelocityY;
     }
 
     // 入力データを蓄積するリスト
     private static List<InputRecord> _inputRecords = new List<InputRecord>();
 
     // 入力データを記録
-    public static void RecordInput(int frameNumber, int playerIndex, Input input) {
+    // 入力データを記録
+    public static void RecordInput(int frameNumber, int playerIndex, Input input, MarioPlayer* mario, Transform2D* transform, PhysicsObject* physics) {
+        // StarChasers specific check - assuming generic access or just accessing the memory
+        // We use safe access if possible, or direct access if we are sure of the layout.
+        // For now, we will just access the stars directly as requested.
+        int stars = 0;
+        // Check if we can safely access the union. 
+        // We will just read the byte at the offset of StarChasers.Stars.
+        stars = mario->GamemodeData.StarChasers->Stars;
+
         _inputRecords.Add(new InputRecord {
             FrameNumber = frameNumber,
             PlayerIndex = playerIndex,
@@ -38,7 +58,17 @@ public static unsafe class QuantumUtils {
             Sprint = input.Sprint.IsDown,
             PowerupAction = input.PowerupAction.IsDown,
             FireballPowerupAction = input.FireballPowerupAction.IsDown,
-            PropellerPowerupAction = input.PropellerPowerupAction.IsDown
+            PropellerPowerupAction = input.PropellerPowerupAction.IsDown,
+            
+            Stars = stars,
+            KnockbackStrength = (int)mario->CurrentKnockback,
+            IsInWeakKnockback = mario->IsInWeakKnockback,
+            KnockbackGetupFrames = mario->KnockbackGetupFrames,
+            DamageInvincibilityFrames = mario->DamageInvincibilityFrames,
+            PositionX = transform->Position.X.AsFloat,
+            PositionY = transform->Position.Y.AsFloat,
+            VelocityX = physics->Velocity.X.AsFloat,
+            VelocityY = physics->Velocity.Y.AsFloat
         });
     }
 
